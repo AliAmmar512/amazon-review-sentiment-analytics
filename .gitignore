@@ -5,3 +5,5 @@ data/raw/
 data/processed/
 .env
 .ipynb_checkpoints/
+.agents/
+.claude/
