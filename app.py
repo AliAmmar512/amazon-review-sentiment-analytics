@@ -30,10 +30,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📈 Overview & Trends", "🤖 Model Comparis
 
 with tab1:
     st.sidebar.header("Filters")
-    selected_category = st.sidebar.selectbox(
-        "Category",
-        options=["All"] + sorted(df['category'].unique().tolist())
-    )
+    
 
     if selected_category != "All":
         filtered_trend = trend_df[trend_df['category'] == selected_category]
