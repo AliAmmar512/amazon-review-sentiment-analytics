@@ -2,8 +2,8 @@ venv/
 __pycache__/
 *.pyc
 data/raw/
-data/processed/
 .env
 .ipynb_checkpoints/
 .agents/
 .claude/
+.streamlit/secrets.toml
