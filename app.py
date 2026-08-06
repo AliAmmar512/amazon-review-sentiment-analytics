@@ -1,6 +1,6 @@
 import json
 import os
-
+import time
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -10,9 +10,161 @@ from data_loader import load_data
 from db_queries import get_db_engine, is_safe_select, run_safe_query, PRESET_QUERIES, MAX_QUERY_ROWS, STATEMENT_TIMEOUT_MS
 from model_utils import load_model, predict_sentiment, LABEL_MAP
 from charts import sentiment_trend_chart, topic_bar_chart, confusion_matrix_chart, SENTIMENT_COLORS
+from streamlit_lottie import st_lottie
+import requests
+
+@st.cache_data
+def load_lottie_url(url: str):
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        return None
+    return None
+
 
 st.set_page_config(page_title="Amazon Review Sentiment Analytics", layout="wide")
 
+
+
+def animated_metric(col, label, target_value, is_percent=False, duration=0.5, key=None):
+    """Animate a metric counting up to its value, but only once per session."""
+    session_key = f"animated_{key}"
+    placeholder = col.empty()
+
+    if st.session_state.get(session_key, False):
+        display_val = f"{target_value:.1f}%" if is_percent else f"{int(target_value):,}"
+        placeholder.metric(label, display_val)
+        return
+
+    steps = 20
+    for i in range(steps + 1):
+        current = target_value * (i / steps)
+        display_val = f"{current:.1f}%" if is_percent else f"{int(current):,}"
+        placeholder.metric(label, display_val)
+        time.sleep(duration / steps)
+
+    st.session_state[session_key] = True
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    .main {
+        animation: fadeIn 0.7s ease-in;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Animated glow background orbs */
+    .stApp {
+        background:
+            radial-gradient(circle at 15% 20%, rgba(108, 92, 231, 0.12) 0%, transparent 40%),
+            radial-gradient(circle at 85% 80%, rgba(162, 155, 254, 0.10) 0%, transparent 40%),
+            #0E1117;
+    }
+
+    /* Glassmorphism metric cards */
+    div[data-testid="stMetric"] {
+        background: rgba(26, 29, 41, 0.6);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(108, 92, 231, 0.25);
+        border-radius: 16px;
+        padding: 18px;
+        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-6px) scale(1.02);
+        box-shadow: 0 12px 32px rgba(108, 92, 231, 0.3);
+        border-color: rgba(108, 92, 231, 0.6);
+    }
+
+    /* Headings use Poppins for more character */
+    h1, h2, h3 {
+        font-family: 'Poppins', sans-serif !important;
+    }
+
+    /* Buttons with glow-on-hover */
+    .stButton > button {
+        background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.65rem 1.6rem;
+        font-weight: 600;
+        font-family: 'Poppins', sans-serif;
+        transition: all 0.25s ease;
+    }
+    .stButton > button:hover {
+        transform: scale(1.04);
+        box-shadow: 0 0 24px rgba(108, 92, 231, 0.55);
+    }
+    .stButton > button:active {
+        transform: scale(0.98);
+    }
+
+    /* Tabs with animated underline */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 10px 10px 0 0;
+        font-weight: 600;
+        font-family: 'Poppins', sans-serif;
+        transition: background 0.2s ease;
+        padding: 10px 18px;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(108, 92, 231, 0.1);
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(108, 92, 231, 0.15) !important;
+        border-bottom: 3px solid #6C5CE7 !important;
+    }
+
+    /* DataFrames / tables with rounded corners */
+    div[data-testid="stDataFrame"] {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(108, 92, 231, 0.15);
+    }
+
+    /* Text area / input glow on focus */
+    .stTextArea textarea, .stTextInput input {
+        border-radius: 10px !important;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .stTextArea textarea:focus, .stTextInput input:focus {
+        box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.3) !important;
+        border-color: #6C5CE7 !important;
+    }
+
+    /* Sidebar polish */
+    section[data-testid="stSidebar"] {
+        background: rgba(15, 17, 25, 0.95);
+        border-right: 1px solid rgba(108, 92, 231, 0.15);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0E1117; }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(108, 92, 231, 0.5);
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(108, 92, 231, 0.8); }
+
+    /* Hide default Streamlit chrome */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {background: transparent;}
+</style>
+""", unsafe_allow_html=True)
 try:
     df, trend_df, topics_df = load_data()
 except FileNotFoundError as e:
@@ -27,18 +179,23 @@ selected_category = st.sidebar.selectbox(
     options=["All"] + sorted(df["category"].unique().tolist()),
     key="category_filter",
 )
-
-st.title("📊 Amazon Review Sentiment Analytics Dashboard")
-st.markdown(
-    "Analysis of **74,545 Amazon reviews** across Electronics, Beauty, Home & Kitchen, and Software categories"
-)
-
+st.markdown("""
+<div style="text-align: center; padding: 2rem 0 1rem 0;">
+    <h1 style="font-size: 2.8rem; margin-bottom: 0.3rem;
+               background: linear-gradient(135deg, #6C5CE7, #A29BFE);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+        📊 Amazon Review Sentiment Analytics
+    </h1>
+    <p style="color: #9CA3AF; font-size: 1.1rem;">
+        Sentiment analysis, topic modeling & live prediction across 74,545 real Amazon reviews
+    </p>
+</div>
+""", unsafe_allow_html=True)
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Reviews", f"{len(df):,}")
-col2.metric("Positive", f"{(df['sentiment'] == 'positive').mean() * 100:.1f}%")
-col3.metric("Negative", f"{(df['sentiment'] == 'negative').mean() * 100:.1f}%")
-col4.metric("Neutral", f"{(df['sentiment'] == 'neutral').mean() * 100:.1f}%")
-
+animated_metric(col1, "Total Reviews", len(df), key="total")
+animated_metric(col2, "Positive", (df['sentiment'] == 'positive').mean() * 100, is_percent=True, key="positive")
+animated_metric(col3, "Negative", (df['sentiment'] == 'negative').mean() * 100, is_percent=True, key="negative")
+animated_metric(col4, "Neutral", (df['sentiment'] == 'neutral').mean() * 100, is_percent=True, key="neutral")
 tab1, tab2, tab3, tab4 = st.tabs(
     ["📈 Overview & Trends", "🤖 Model Comparison", "🗄️ SQL Explorer", "🔮 Live Prediction"]
 )
