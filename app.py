@@ -10,18 +10,7 @@ from data_loader import load_data
 from db_queries import get_db_engine, is_safe_select, run_safe_query, PRESET_QUERIES, MAX_QUERY_ROWS, STATEMENT_TIMEOUT_MS
 from model_utils import load_model, predict_sentiment, LABEL_MAP
 from charts import sentiment_trend_chart, topic_bar_chart, confusion_matrix_chart, SENTIMENT_COLORS
-from streamlit_lottie import st_lottie
-import requests
 
-@st.cache_data
-def load_lottie_url(url: str):
-    try:
-        r = requests.get(url, timeout=5)
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        return None
-    return None
 
 
 st.set_page_config(page_title="Amazon Review Sentiment Analytics", layout="wide")
